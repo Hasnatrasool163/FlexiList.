@@ -40,10 +40,12 @@ import java.util.*;
  * The {@code key feature of a FlexiList} is its use of a doubly-linked list,
  * where each node points to both the previous and next nodes in the list.
  * This allows for efficient navigation in both directions, making it easy to insert and delete nodes at any position.
+
  * {@code Compared to arrays}, FlexiList has several advantages:
  * - {@code Efficient insertion and deletion}: FlexiList can insert or delete nodes at any position in the list in O(1) time, whereas arrays require shifting all elements after the insertion or deletion point.
  * - {@code Dynamic size}: FlexiList can grow or shrink dynamically as elements are added or removed, whereas arrays have a fixed size.
  * - {@code Good memory locality}: FlexiList nodes are stored in a contiguous block of memory, making it more cache-friendly than arrays.
+
  * {@code Compared to ArrayList}, FlexiList has several advantages:
  * - {@code Faster insertion and deletion}: FlexiList can insert or delete nodes at any position in the list in O(1) time, whereas ArrayList requires shifting all elements after the insertion or deletion point.
  * - {@code Better memory efficiency}: FlexiList uses less memory than ArrayList because it doesn't need to store a separate array of indices.
@@ -90,7 +92,7 @@ public class FlexiList<T extends Comparable<T>> implements Serializable, Cloneab
     /**
      * The initial size of the index array.
      */
-    private int indexArraySize = 1000;
+    private int indexArraySize = 100;
 
     /**
      * Constructs a new FlexiList instance with provided initial size
@@ -427,6 +429,24 @@ public class FlexiList<T extends Comparable<T>> implements Serializable, Cloneab
      *
      * @param comparator the comparator to use for sorting
      */
+//    public void sort(Comparator<T> comparator) {
+//        Node<T> curr = head;
+//        Object[] array = new Object[size];
+//        int i = 0;
+//        while (curr != null) {
+//            array[i] = curr.data;
+//            curr = curr.next;
+//            i++;
+//        }
+//        Arrays.sort(array);
+//        curr = head;
+//        i = 0;
+//        while (curr != null) {
+//            curr.data = (T) array[i];
+//            curr = curr.next;
+//            i++;
+//        }
+//    }
     public void sort(Comparator<T> comparator) {
         Node<T> curr = head;
         Object[] array = new Object[size];
@@ -436,7 +456,20 @@ public class FlexiList<T extends Comparable<T>> implements Serializable, Cloneab
             curr = curr.next;
             i++;
         }
-        Arrays.sort(array);
+
+        Arrays.sort(array, (a, b) -> {
+            if (a == null && b == null) {
+                return 0; // Treat two nulls as equal
+            }
+            if (a == null) {
+                return 1; // Nulls come after non-null values
+            }
+            if (b == null) {
+                return -1; // Non-null values come before nulls
+            }
+            return comparator.compare((T) a, (T) b);
+        });
+
         curr = head;
         i = 0;
         while (curr != null) {
@@ -445,6 +478,7 @@ public class FlexiList<T extends Comparable<T>> implements Serializable, Cloneab
             i++;
         }
     }
+
 
     /**
      * Returns a new list containing the elements from the specified fromIndex to the specified toIndex.
@@ -496,13 +530,12 @@ public class FlexiList<T extends Comparable<T>> implements Serializable, Cloneab
             indexArraySize = size;
         }
     }
-
-
     /**
      * Gets the element at the specified index.
      *
      * @param index the index of the element to retrieve
      * @return the element at the specified index
+     * @throws IndexOutOfBoundsException if the index is out of range (index < 0 || index >= size)
      */
     public T get(int index) {
         Node<T> curr;
@@ -519,7 +552,6 @@ public class FlexiList<T extends Comparable<T>> implements Serializable, Cloneab
         }
         return curr.data;
     }
-
     /**
      * Sets the element at the specified index.
      *
@@ -743,6 +775,11 @@ public class FlexiList<T extends Comparable<T>> implements Serializable, Cloneab
         }
     }
 
+    /**
+     * Return list formatted as a string.
+     *
+     * @return toString representation of list
+     */
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder("[");
@@ -820,10 +857,13 @@ public class FlexiList<T extends Comparable<T>> implements Serializable, Cloneab
     public FlexiList<T> clone() {
         FlexiList<T> clone;
         try {
+            // Perform shallow copy
             clone = (FlexiList<T>) super.clone();
         } catch (CloneNotSupportedException e) {
             throw new AssertionError();
         }
+
+        // Initialize clone attributes
         clone.head = null;
         clone.tail = null;
         clone.lastNode = null;
@@ -831,11 +871,17 @@ public class FlexiList<T extends Comparable<T>> implements Serializable, Cloneab
         clone.freeNode = null;
         clone.freeCount = 0;
         clone.indexArray = new Object[indexArraySize];
-        for (int i = 0; i < size; i++) {
-            clone.add(get(i));
+
+        // Iterate through the original list and add each element to the clone
+        Node<T> curr = head;
+        while (curr != null) {
+            clone.add(curr.data);
+            curr = curr.next;
         }
+
         return clone;
     }
+
 // using the default readObject method for serialization.
 
     /**
@@ -859,19 +905,35 @@ public class FlexiList<T extends Comparable<T>> implements Serializable, Cloneab
     }
 
     /**
-     * to do
-     * method to swap two elements in the list
+     * Swaps the elements at the specified indices in the list.
+     * This method swaps the elements at the specified indices in the list.
+     * It first validates the indices to ensure they are within the bounds of the list.
+     * If the indices are the same, indicating no need to swap, the method returns without performing any action.
+     * Otherwise, it locates the nodes corresponding to the given indices.
+     * If the nodes are adjacent, it swaps them by updating their respective next and prev pointers.
+     * If the nodes are not adjacent, it swaps them by updating their next and prev pointers as well as the pointers of adjacent nodes.
+     * <p>
+     * After the swap, the method updates the head and tail pointers if necessary to maintain the integrity of the list.
      *
-     * @param index1 first index
-     * @param index2 second index
+     * @param index1 the index of the first element to swap
+     * @param index2 the index of the second element to swap
+     * @throws IndexOutOfBoundsException if the indices are out of bounds
      */
     public void swap(int index1, int index2) {
+
+        // Suppose we have a list: 10 <-> 20 <-> 30 <-> 40 <-> 50
+        //
+        //Now, let's swap elements at indices 1 and 3:
+        //
+        //Initially, the list looks like: 10 <-> 20 <-> 30 <-> 40 <-> 50
+        //After swapping, the list becomes: 10 <-> 40 <-> 30 <-> 20 <-> 50
+
         if (index1 < 0 || index1 >= size || index2 < 0 || index2 >= size) {
             throw new IndexOutOfBoundsException("Index out of bounds");
         }
 
-        // If the indices are the same, no need to swap
         if (index1 == index2) {
+            // Indices are the same, no need to swap
             return;
         }
 
@@ -879,10 +941,73 @@ public class FlexiList<T extends Comparable<T>> implements Serializable, Cloneab
         Node<T> node1 = getNode(index1);
         Node<T> node2 = getNode(index2);
 
-        // Swap the data in the nodes
-        T temp = node1.data;
-        node1.data = node2.data;
-        node2.data = temp;
+        // Swap the nodes
+        if (node1.next == node2) {
+            // Nodes are adjacent
+            Node<T> temp = node2.next;
+            node2.next = node1;
+            node1.prev = node2;
+            node1.next = temp;
+            if (temp != null) {
+                temp.prev = node1;
+            }
+            node2.prev = null;
+            head = node2;
+            if (node1.next == null) {
+                tail = node1;
+            }
+        } else if (node2.next == node1) {
+            // Nodes are adjacent
+            Node<T> temp = node1.next;
+            node1.next = node2;
+            node2.prev = node1;
+            node2.next = temp;
+            if (temp != null) {
+                temp.prev = node2;
+            }
+            node1.prev = null;
+            head = node1;
+            if (node2.next == null) {
+                tail = node2;
+            }
+        } else {
+            // Nodes are not adjacent
+            Node<T> tempPrev1 = node1.prev;
+            Node<T> tempNext1 = node1.next;
+            Node<T> tempPrev2 = node2.prev;
+            Node<T> tempNext2 = node2.next;
+
+            node1.prev = tempPrev2;
+            node1.next = tempNext2;
+            if (tempNext2 != null) {
+                tempNext2.prev = node1;
+            }
+            if (tempPrev2 != null) {
+                tempPrev2.next = node1;
+            }
+
+            node2.prev = tempPrev1;
+            node2.next = tempNext1;
+            if (tempNext1 != null) {
+                tempNext1.prev = node2;
+            }
+            if (tempPrev1 != null) {
+                tempPrev1.next = node2;
+            }
+
+            if (node1.prev == null) {
+                head = node1;
+            }
+            if (node1.next == null) {
+                tail = node1;
+            }
+            if (node2.prev == null) {
+                head = node2;
+            }
+            if (node2.next == null) {
+                tail = node2;
+            }
+        }
     }
 
     private Node<T> getNode(int index) {
@@ -890,14 +1015,15 @@ public class FlexiList<T extends Comparable<T>> implements Serializable, Cloneab
             throw new IndexOutOfBoundsException("Index out of bounds");
         }
 
-        // Determine whether to start traversal from head or tail
+        // check whether to start traversal from head or tail
         Node<T> current;
         if (index < size / 2) {
-            // Start from the head and move forward
+            // if index less than size ->Start from the head and move forward
             current = head;
             for (int i = 0; i < index; i++) {
                 current = current.next;
             }
+
         } else {
             // Start from the tail and move backward
             current = tail;
@@ -905,6 +1031,7 @@ public class FlexiList<T extends Comparable<T>> implements Serializable, Cloneab
                 current = current.prev;
             }
         }
+
         return current;
     }
 
@@ -925,6 +1052,11 @@ public class FlexiList<T extends Comparable<T>> implements Serializable, Cloneab
          */
         public Node(T data) {
             this.data = data;
+        }
+
+        @Override
+        public String toString() {
+            return String.valueOf(data);
         }
     }
 
@@ -949,6 +1081,7 @@ public class FlexiList<T extends Comparable<T>> implements Serializable, Cloneab
             current = current.next;
             return element;
         }
+
     }
 
     /**
@@ -1025,7 +1158,357 @@ public class FlexiList<T extends Comparable<T>> implements Serializable, Cloneab
 
     }
 
+    /**
+     * Returns key passed for searching
+     *
+     * @param key passed to search inside the list
+     * @return key
+     */
+
+    public Node<T> search(T key) {
+        Node<T> current = head;
+        int low = 0;
+        int high = size - 1;
+        while (low <= high) {
+            int mid = (low + high) / 2;
+            Node<T> midNode = getNode(mid);
+            if (midNode.data.equals(key)) {
+                return midNode;
+            } else if (midNode.data.compareTo(key) < 0) {
+                low = mid + 1;
+            } else {
+                high = mid - 1;
+            }
+        }
+        return null; // not found
+    }
+
+    /**
+     * Returns nodes form the end of the list based on integer passed
+     *
+     * @param n integer passed
+     * @return nth node based on integer passed
+     */
+    public Node<T> findNthNodeFromEnd(int n) {
+
+//       //Use case of the method findNthNodeFromEnd:
+
+//- Find the second last node in the list: Node<T> secondLast = findNthNodeFromEnd(2);
+//- Find the third last node in the list: Node<T> thirdLast = findNthNodeFromEnd(3);
+//- Find the last node in the list: Node<T> last = findNthNodeFromEnd(1);
+//
+//This method can be useful in situations where you need to access nodes from the end of the list, such as:
+//
+//- Finding the last node in a list
+//- Finding the second last node in a list
+//- Finding the third last node in a list
+//- Finding the nth last node in a list
+//
+//For example, in a game, you might need to access the last node in a list of players to determine the winner. Or, in a social media app, you might need to access the second last node in a list of posts to display the most recent post.
+        Node<T> slow = head;
+        Node<T> fast = head;
+        for (int i = 0; i < n; i++) {
+            if (fast == null) {
+                return null; // not enough nodes
+            }
+            fast = fast.next;
+        }
+        while (fast != null) {
+            slow = slow.next;
+            fast = fast.next;
+        }
+        return slow;
+    }
+
+    /**
+     * - Finds the middle element of the list.
+     *
+     * @return the middle element of the list
+     */
+    public T findMiddle() {
+
+        // The findMiddle method uses the "tortoise and hare" algorithm to find the
+        // middle element of the list. The "slow" variable moves one step at a time,
+        // while the "fast" variable moves two steps at a time. When the "fast" variable
+        // reaches the end of the list, the "slow" variable will be at the middle element.
+
+        Node<T> slow = head;
+        Node<T> fast = head;
+        while (fast != null && fast.next != null) {
+            slow = slow.next;
+            fast = fast.next.next;
+        }
+        assert slow != null;
+        return slow.data;
+    }
+
+    /**
+     * Pushes an element onto the stack.
+     *
+     * @param element the element to push
+     */
+    public void push(T element) {
+        Node<T> node = new Node<>(element);
+        node.next = head;
+        head = node;
+        size++;
+        updateIndexArray(size - 1, node);
+    }
+
+    /**
+     * Pops an element from the stack.
+     *
+     * @return the popped element
+     * @throws NoSuchElementException {
+     *                                if element does not exist
+     *                                }
+     */
+    public T pop() {
+        if (head == null) {
+            throw new NoSuchElementException();
+        }
+        T element = head.data;
+        head = head.next;
+        size--;
+        return element;
+    }
+
+    /**
+     * Enqueues an element onto the queue.
+     *
+     * @param element the element to enqueue
+     */
+    public void enqueue(T element) {
+        Node<T> node = new Node<>(element);
+        if (tail == null) {
+            head = node;
+        } else {
+            tail.next = node;
+        }
+        tail = node;
+        size++;
+    }
+
+    /**
+     * Dequeues an element from the queue.
+     *
+     * @return the dequeued element
+     */
+    public T dequeue() {
+        T element = head.data;
+        head = head.next;
+        size--;
+        return element;
+    }
+
+    /**
+     * Removes all duplicates from the list.
+     */
+    public void deleteDuplicates() {
+        Node<T> current = head;
+        Node<T> previous = null;
+        HashSet<T> seen = new HashSet<>();
+
+        while (current != null) {
+            if (seen.contains(current.data)) {
+                if (previous != null) {
+                    previous.next = current.next;
+                    if (current.next != null) {
+                        current.next.prev = previous;
+                    } else {
+                        tail = previous; // Update tail if the last duplicate node is removed
+                    }
+                } else {
+                    head = current.next;
+                    if (current.next != null) {
+                        current.next.prev = null;
+                    } else {
+                        tail = null; // Update tail if all nodes are duplicates
+                    }
+                }
+            } else {
+                seen.add(current.data);
+                previous = current;
+            }
+            current = current.next;
+        }
+    }
+
+
+    /**
+     * insertion sort algorithm to sort the list.
+     */
+    public void insertionSort() {
+        if (head == null || head.next == null) {
+            return; // List is empty or has only one element
+        }
+
+        Node<T> curr = head.next;
+        while (curr != null) {
+            T key = curr.data;
+            Node<T> prev = curr.prev;
+            while (prev != null && key.compareTo(prev.data) < 0) {
+                prev.next.data = prev.data;
+                prev = prev.prev;
+            }
+            if (prev == null) {
+                head.data = key;
+            } else {
+                prev.next.data = key;
+            }
+            curr = curr.next;
+        }
+    }
+
+    /**
+     * Returns the head node of the list
+     * @return the head node of the list
+     */
+    public Node<T> getHead() {
+        return head;
+    }
+
+    /**
+     * Returns the tail node of the list.
+     *
+     * @return the tail node of the list
+     */
+    public Node<T> getTail() {
+        return tail;
+    }
+
+    /**
+     * Class to support bidirectional iteration.
+     *
+     * @param <T> the type of data stored in the list
+     */
+    static class BidirectionalIterator<T> implements Iterator<T> {
+        private Node<T> nextNode;
+        private Node<T> prevNode;
+
+        /**
+         * Constructs a new bidirectional iterator.
+         *
+         * @param head the head node of the list
+         * @param tail the tail node of the list
+         */
+        public BidirectionalIterator(Node<T> head, Node<T> tail) {
+            this.nextNode = head;
+            this.prevNode = tail;
+        }
+
+        /**
+         * Checks if there are more elements in the forward direction.
+         *
+         * @return true if there are more elements, otherwise false
+         */
+        @Override
+        public boolean hasNext() {
+            return nextNode != null;
+        }
+
+        /**
+         * Retrieves the next element in the forward direction.
+         *
+         * @return the next element
+         * @throws NoSuchElementException if there are no more elements
+         */
+        @Override
+        public T next() {
+            if (!hasNext()) {
+                throw new NoSuchElementException("No more elements in the list");
+            }
+            T data = nextNode.data;
+            nextNode = nextNode.next;
+            return data;
+        }
+
+        /**
+         * Checks if there are more elements in the reverse direction.
+         *
+         * @return true if there are more elements, otherwise false
+         */
+        public boolean hasPrevious() {
+            return prevNode != null;
+        }
+
+        /**
+         * Retrieves the previous element in the reverse direction.
+         *
+         * @return the previous element
+         * @throws NoSuchElementException if there are no more elements
+         */
+        public T previous() {
+            if (!hasPrevious()) {
+                throw new NoSuchElementException("No more elements in the list");
+            }
+            T data = prevNode.data;
+            prevNode = prevNode.prev;
+            return data;
+        }
+    }
+
+
+    /**
+     * Sorts the elements in the list using the quicksort algorithm.
+     */
+    public void quicksort() {
+        if (size > 1) {
+            quicksort(head, tail);
+        }
+    }
+
+    /**
+     * Recursively sorts the elements in the list using the quicksort algorithm.
+     *
+     * @param low  the lower bound of the sublist to be sorted
+     * @param high the upper bound of the sublist to be sorted
+     */
+    private void quicksort(Node<T> low, Node<T> high) {
+        if (low != null && high != null && low != high && low.prev != high) {
+            Node<T> pivot = partition(low, high);
+            quicksort(low, pivot.prev);
+            quicksort(pivot.next, high);
+        }
+    }
+
+    /**
+     * Partitions the sublist into two parts, placing elements smaller than the pivot to its left
+     * and elements larger than the pivot to its right.
+     *
+     * @param low  the lower bound of the sublist
+     * @param high the upper bound of the sublist
+     * @return the pivot node after partitioning
+     */
+    private Node<T> partition(Node<T> low, Node<T> high) {
+        T pivot = high.data;
+        Node<T> i = low.prev;
+        for (Node<T> j = low; j != high; j = j.next) {
+            if (j.data.compareTo(pivot) < 0) {
+                i = (i == null) ? low : i.next;
+                swapData(i, j);
+            }
+        }
+        i = (i == null) ? low : i.next;
+        swapData(i, high);
+        return i;
+    }
+
+    /**
+     * Swaps the data of two nodes.
+     *
+     * @param a the first node
+     * @param b the second node
+     */
+    private void swapData(Node<T> a, Node<T> b) {
+        T temp = a.data;
+        a.data = b.data;
+        b.data = temp;
+    }
+
+
 }
+
 
 // end of FlexiList----------------------------------------------------------------------
 
